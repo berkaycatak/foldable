@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../model/foldable_data.dart';
 import '../model/hinge_status.dart';
 import '../model/reserved_region.dart';
+import '../model/size_class.dart';
 import 'duo_media_query.dart';
 
 /// Fold state, with geometry translated into the builder's own coordinates.
@@ -16,6 +17,8 @@ class FoldInfo {
     required this.angleDegrees,
     required this.divisionRects,
     required this.occlusionRects,
+    this.horizontalSizeClass = SizeClass.unspecified,
+    this.verticalSizeClass = SizeClass.unspecified,
   });
 
   /// The value used when there is no fold information available.
@@ -44,6 +47,19 @@ class FoldInfo {
   /// Active camera cutouts, in the builder's local coordinate space.
   final List<Rect> occlusionRects;
 
+  /// The horizontal size class iOS reports for this window.
+  ///
+  /// Prefer this over a width breakpoint where it is available: it is what the
+  /// system lays out from, and it accounts for Split View. Falls back to
+  /// [SizeClass.unspecified] off iOS, where `constraints` remains the signal.
+  final SizeClass horizontalSizeClass;
+
+  /// The vertical size class iOS reports for this window.
+  final SizeClass verticalSizeClass;
+
+  /// Whether iOS considers this window wide.
+  bool get isRegularWidth => horizontalSizeClass == SizeClass.regular;
+
   /// Whether the hinge rests between closed and flat.
   bool get isPartiallyOpen => status == HingeStatus.partiallyOpen;
 
@@ -68,6 +84,8 @@ class FoldInfo {
           other.isFoldable == isFoldable &&
           other.status == status &&
           other.angleDegrees == angleDegrees &&
+          other.horizontalSizeClass == horizontalSizeClass &&
+          other.verticalSizeClass == verticalSizeClass &&
           listEquals(other.divisionRects, divisionRects) &&
           listEquals(other.occlusionRects, occlusionRects);
 
@@ -76,6 +94,8 @@ class FoldInfo {
     isFoldable,
     status,
     angleDegrees,
+    horizontalSizeClass,
+    verticalSizeClass,
     Object.hashAll(divisionRects),
     Object.hashAll(occlusionRects),
   );
@@ -147,6 +167,8 @@ class _FoldAwareBuilderState extends State<FoldAwareBuilder> {
             isFoldable: true,
             status: data.status,
             angleDegrees: data.angleDegrees,
+            horizontalSizeClass: data.horizontalSizeClass,
+            verticalSizeClass: data.verticalSizeClass,
             divisionRects: _toLocal(
               data.regions.where(
                 (ReservedRegion r) => r.kind == ReservedRegionKind.division,
@@ -158,7 +180,15 @@ class _FoldAwareBuilderState extends State<FoldAwareBuilder> {
               ),
             ),
           )
-        : FoldInfo.none;
+        : FoldInfo(
+            isFoldable: false,
+            status: HingeStatus.unknown,
+            angleDegrees: null,
+            divisionRects: const <Rect>[],
+            occlusionRects: const <Rect>[],
+            horizontalSizeClass: data.horizontalSizeClass,
+            verticalSizeClass: data.verticalSizeClass,
+          );
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) =>

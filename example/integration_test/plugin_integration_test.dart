@@ -38,6 +38,16 @@ void main() {
     await expectLater(Foldable.hingeAngleStream.toList(), completion(isEmpty));
   });
 
+  testWidgets('size classes come back from the real trait collection', (
+    WidgetTester tester,
+  ) async {
+    final FoldableData data = await Foldable.snapshot;
+    // Size classes exist on every iOS device, unlike the hinge. On an iPhone
+    // in portrait UIKit reports compact width and regular height.
+    expect(data.horizontalSizeClass, SizeClass.compact);
+    expect(data.verticalSizeClass, SizeClass.regular);
+  });
+
   testWidgets('native API dump runs and reports no hinge classes', (
     WidgetTester tester,
   ) async {

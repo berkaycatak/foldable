@@ -70,6 +70,9 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
       supportLevel = "availableNoHinge"
     }
 
+    let view = Self.hostView()
+    let sizeClasses = FoldableTraits.sizeClasses(for: view)
+
     var payload: [String: Any] = [
       "wireVersion": Self.wireVersion,
       "supportLevel": supportLevel,
@@ -79,7 +82,10 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
       "angleUnitVerified": reading?.angleUnitVerified ?? false,
       "strategy": hingeSource.strategy,
       "status": (reading?.status ?? .unknown).rawValue,
-      "regions": regions().map { $0.toMap() },
+      "regions": regions(in: view).map { $0.toMap() },
+      // Size classes are available on every device, hinge or not.
+      "horizontalSizeClass": sizeClasses.horizontal.rawValue,
+      "verticalSizeClass": sizeClasses.vertical.rawValue,
     ]
     // NSNull encodes as Dart null; omitting the key would too, but being
     // explicit keeps the payload shape stable.
@@ -87,8 +93,8 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     return payload
   }
 
-  private func regions() -> [FoldableRegion] {
-    guard let view = Self.hostView() else { return [] }
+  private func regions(in view: UIView?) -> [FoldableRegion] {
+    guard let view = view else { return [] }
     return regionSource.regions(in: view)
   }
 

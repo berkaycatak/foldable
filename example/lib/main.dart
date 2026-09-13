@@ -69,6 +69,12 @@ class _FoldableExampleAppState extends State<FoldableExampleApp> {
           ),
         ],
         displayFeatures: const <DisplayFeature>[],
+        // Mirrors how iOS classifies width: the cover display is compact, the
+        // inner display regular.
+        horizontalSizeClass: size.width >= 600
+            ? SizeClass.regular
+            : SizeClass.compact,
+        verticalSizeClass: SizeClass.regular,
       ),
     );
   }
@@ -210,6 +216,8 @@ class _DeviceCard extends StatelessWidget {
             _Row('region API', '${caps.regionApiPresent}'),
             _Row('angle verified', '${caps.angleUnitVerified}'),
             _Row('regions', '${data.regions.length}'),
+            _Row('size class H', data.horizontalSizeClass.name),
+            _Row('size class V', data.verticalSizeClass.name),
           ],
         ),
       ),
@@ -301,8 +309,10 @@ class _FoldAwareCard extends StatelessWidget {
                       FoldInfo fold,
                     ) {
                       if (!fold.spansDivision) {
-                        return const _Pane(
-                          label: 'Single pane',
+                        return _Pane(
+                          label: fold.isRegularWidth
+                              ? 'Single pane, regular width'
+                              : 'Single pane, compact width',
                           detail: 'no fold crosses this area',
                         );
                       }

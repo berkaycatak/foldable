@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'foldable_capabilities.dart';
 import 'hinge_status.dart';
 import 'reserved_region.dart';
+import 'size_class.dart';
 
 /// An atomic snapshot of everything the platform knows about the fold.
 ///
@@ -21,6 +22,8 @@ class FoldableData {
     required this.angleDegrees,
     required this.regions,
     required this.displayFeatures,
+    this.horizontalSizeClass = SizeClass.unspecified,
+    this.verticalSizeClass = SizeClass.unspecified,
   });
 
   /// The value used on devices without a hinge, on non-iOS platforms, and
@@ -58,6 +61,15 @@ class FoldableData {
   /// bridging. See `DisplayFeatureBridgeMode`.
   final List<DisplayFeature> displayFeatures;
 
+  /// The horizontal size class iOS reports for this window.
+  ///
+  /// Reported on every iOS device, foldable or not, and it tracks Split View
+  /// too, so it is a better layout signal than a width breakpoint.
+  final SizeClass horizontalSizeClass;
+
+  /// The vertical size class iOS reports for this window.
+  final SizeClass verticalSizeClass;
+
   /// Whether this device physically has a hinge.
   bool get isFoldable => capabilities.isFoldable;
 
@@ -81,6 +93,8 @@ class FoldableData {
     bool clearAngle = false,
     List<ReservedRegion>? regions,
     List<DisplayFeature>? displayFeatures,
+    SizeClass? horizontalSizeClass,
+    SizeClass? verticalSizeClass,
   }) {
     return FoldableData(
       capabilities: capabilities ?? this.capabilities,
@@ -88,6 +102,8 @@ class FoldableData {
       angleDegrees: clearAngle ? null : (angleDegrees ?? this.angleDegrees),
       regions: regions ?? this.regions,
       displayFeatures: displayFeatures ?? this.displayFeatures,
+      horizontalSizeClass: horizontalSizeClass ?? this.horizontalSizeClass,
+      verticalSizeClass: verticalSizeClass ?? this.verticalSizeClass,
     );
   }
 
@@ -98,6 +114,8 @@ class FoldableData {
           other.capabilities == capabilities &&
           other.status == status &&
           other.angleDegrees == angleDegrees &&
+          other.horizontalSizeClass == horizontalSizeClass &&
+          other.verticalSizeClass == verticalSizeClass &&
           listEquals(other.regions, regions) &&
           listEquals(other.displayFeatures, displayFeatures);
 
@@ -106,6 +124,8 @@ class FoldableData {
     capabilities,
     status,
     angleDegrees,
+    horizontalSizeClass,
+    verticalSizeClass,
     Object.hashAll(regions),
     Object.hashAll(displayFeatures),
   );

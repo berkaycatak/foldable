@@ -60,6 +60,7 @@ class _FoldableProviderState extends State<FoldableProvider> {
   StreamSubscription<FoldableData>? _subscription;
   AppLifecycleListener? _lifecycle;
   bool _warnedAboutUpstream = false;
+  Size? _lastSize;
 
   FoldablePlatform get _platform => widget.platform ?? FoldablePlatform.instance;
 
@@ -67,6 +68,19 @@ class _FoldableProviderState extends State<FoldableProvider> {
   void initState() {
     super.initState();
     _start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Size classes change without the hinge moving: entering Split View,
+    // rotating, or opening the device. The event stream only runs on hardware
+    // that has a hinge, so the window size is what tells us to re-read them.
+    final Size size = MediaQuery.sizeOf(context);
+    if (_lastSize != null && size != _lastSize) {
+      _refresh();
+    }
+    _lastSize = size;
   }
 
   @override
@@ -94,7 +108,10 @@ class _FoldableProviderState extends State<FoldableProvider> {
       _platform.getSnapshot().then((FoldableData snapshot) {
         if (!mounted) return;
         _apply(snapshot);
-        if (!snapshot.isFoldable) return; // No hinge: never open the stream.
+        // Without a hinge there is nothing to stream. Size classes still
+        // arrive, refreshed from didChangeDependencies when the window
+        // changes shape.
+        if (!snapshot.isFoldable) return;
         _subscription = _platform.events.listen(_apply);
         _lifecycle = AppLifecycleListener(onResume: _refresh);
       }),

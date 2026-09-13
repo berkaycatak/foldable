@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'foldable'
-  s.version          = '0.1.0'
+  s.version          = '0.2.0'
   s.summary          = 'Hinge angle and fold posture for the foldable iPhone.'
   s.description      = <<-DESC
 Exposes the iPhone Duo hinge angle, fold posture and reserved fold/camera

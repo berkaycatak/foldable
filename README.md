@@ -20,17 +20,21 @@ changes no framework behaviour whatsoever.
 
 - **Hinge angle** as a live stream, in degrees: `0°` folded shut, `180°` flat
 - **Fold posture**: `closed` / `partiallyOpen` / `fullyOpen`, Apple's own terms
-- **Fold and camera geometry**: where the iPhone Duo crease and the FaceTime
-  camera fall, as Apple's `.division` and `.occlusion` reserved regions
+- **Fold and camera geometry**: where the iPhone Duo crease and the inner
+  FaceTime camera fall, as Apple's `.division` and `.occlusion` reserved
+  regions. Both report an `isActive` flag: the fold is active only while the
+  device is folded, and the camera occlusion only while that camera is in use
 - **Fold-aware layout**: `FoldAwareBuilder` plus an `InheritedModel` that
   rebuilds only the widgets that care about the fold
+- **iOS size classes**: the signal the system itself lays out from, bridged to
+  Dart. Works on every iOS device, not just foldables
 - **Optional** `MediaQuery.displayFeatures` bridging, off by default
 
 ## Install
 
 ```yaml
 dependencies:
-  foldable: ^0.1.0
+  foldable: ^0.2.0
 ```
 
 ## Use
@@ -78,6 +82,34 @@ final HingeStatus status = DuoMediaQuery.statusOf(context);
 final double? angle = DuoMediaQuery.angleOf(context);
 final FoldableData data = DuoMediaQuery.of(context);
 ```
+
+### Size classes
+
+iOS reasons about this device in size classes: the cover display is compact
+width, the inner display is regular width. That is a better layout signal than
+a width breakpoint, because it also tracks Split View, where the class changes
+without the device folding at all.
+
+```dart
+final SizeClass width = DuoMediaQuery.horizontalSizeClassOf(context);
+if (width == SizeClass.regular) {
+  // inner display, or an iPad: rail, sidebar, two panes
+}
+```
+
+`FoldAwareBuilder` hands the same thing to its builder, alongside the
+constraints:
+
+```dart
+FoldAwareBuilder(
+  builder: (context, constraints, fold) =>
+      fold.isRegularWidth ? const WideLayout() : const NarrowLayout(),
+)
+```
+
+This is reported on every iOS device, so it stays useful when `isFoldable` is
+false. Off iOS it is `SizeClass.unspecified` and `constraints` remains your
+signal.
 
 `DuoMediaQuery` is an `InheritedModel`, so a widget reading the posture is not
 disturbed while the angle sweeps. For per-frame effects, use
@@ -130,6 +162,21 @@ split your layout by accident:
 If Flutter itself starts reporting display features on iOS
 ([#192515](https://github.com/flutter/flutter/issues/192515)), the bridge
 stands down automatically so the fold is never published twice.
+
+## Build your app against the iOS 27.1 SDK
+
+This affects your app, not this package, but it decides how much of the inner
+display you get:
+
+| Your app built against | On iPhone Duo |
+|---|---|
+| Pre-iOS 27 | Runs fine, but keeps a familiar size and aspect ratio |
+| iOS 27 SDK | Extends left of the status bar area on the inner display |
+| **iOS 27.1 SDK** | Full screen to the edges, vertical bars, and reserved regions |
+
+Reserved regions only exist from the iOS 27.1 SDK, so an app built against an
+older SDK gets an empty region list from this package even on an iPhone Duo.
+The hinge angle and posture are unaffected.
 
 ## How this works before Xcode 27.1
 
@@ -199,7 +246,12 @@ iOS only in 0.1, because that is where the gap is. On every other platform
 in a cross-platform app. Android foldables already get display features from
 Flutter itself, and reading them needs no plugin.
 
-There is deliberately no `TwoPane` widget. `NavigationSplitView`-style layouts
-are already served by `LayoutBuilder` plus the fold geometry this package
-provides, and Apple's guidance for iPhone Duo is explicitly *"don't design a
-custom layout for each pose."*
+There is deliberately no `TwoPane` widget. `LayoutBuilder` plus the size class
+and fold geometry this package provides already cover it, and Apple's guidance
+for iPhone Duo is explicitly *"don't design a custom layout for each pose."*
+
+For native apps Apple ships an Arrangements API in iOS 27.1 (`ArrangementView`
+in SwiftUI, `UIArrangementViewController` in UIKit) that splits a container
+between two views and adapts as the device folds. There is no Flutter
+equivalent, and a faithful port would duplicate what `Row`, `Flexible` and a
+size class check already do. Reach for those instead.

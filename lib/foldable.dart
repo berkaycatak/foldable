@@ -35,6 +35,7 @@ export 'src/model/foldable_capabilities.dart';
 export 'src/model/foldable_data.dart';
 export 'src/model/hinge_status.dart';
 export 'src/model/reserved_region.dart';
+export 'src/model/size_class.dart';
 export 'src/platform/foldable_method_channel.dart'
     show kFoldableEventChannel, kFoldableMethodChannel, MethodChannelFoldable;
 export 'src/platform/foldable_platform.dart';

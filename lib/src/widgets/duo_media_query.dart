@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../model/foldable_data.dart';
 import '../model/hinge_status.dart';
 import '../model/reserved_region.dart';
+import '../model/size_class.dart';
 
 /// The facets of [FoldableData] a widget can depend on individually.
 enum FoldableAspect {
@@ -21,6 +22,9 @@ enum FoldableAspect {
 
   /// The features bridged into `MediaQuery.displayFeatures`.
   displayFeatures,
+
+  /// The iOS size classes.
+  sizeClass,
 }
 
 /// Exposes fold state to the widget tree.
@@ -79,6 +83,25 @@ class DuoMediaQuery extends InheritedModel<FoldableAspect> {
       )?.data.regions ??
       const <ReservedRegion>[];
 
+  /// The horizontal size class iOS reports, rebuilding only when it changes.
+  ///
+  /// This is the signal iOS lays out from, and unlike a width breakpoint it
+  /// also tracks Split View. Available on every iOS device, not just foldables.
+  static SizeClass horizontalSizeClassOf(BuildContext context) =>
+      InheritedModel.inheritFrom<DuoMediaQuery>(
+        context,
+        aspect: FoldableAspect.sizeClass,
+      )?.data.horizontalSizeClass ??
+      SizeClass.unspecified;
+
+  /// The vertical size class iOS reports, rebuilding only when it changes.
+  static SizeClass verticalSizeClassOf(BuildContext context) =>
+      InheritedModel.inheritFrom<DuoMediaQuery>(
+        context,
+        aspect: FoldableAspect.sizeClass,
+      )?.data.verticalSizeClass ??
+      SizeClass.unspecified;
+
   /// Whether the device has a hinge, rebuilding only when that changes.
   static bool isFoldableOf(BuildContext context) =>
       InheritedModel.inheritFrom<DuoMediaQuery>(
@@ -116,6 +139,9 @@ class DuoMediaQuery extends InheritedModel<FoldableAspect> {
           data.displayFeatures,
           old.displayFeatures,
         ),
+        FoldableAspect.sizeClass =>
+          data.horizontalSizeClass != old.horizontalSizeClass ||
+              data.verticalSizeClass != old.verticalSizeClass,
       },
     );
   }
