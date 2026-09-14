@@ -1,0 +1,26 @@
+# Files kept out of the published archive.
+#
+# Note: once this file exists, pub stops consulting .gitignore, so everything
+# that should stay out of the archive has to be listed here, including the
+# build output that .gitignore already covers for git.
+
+# Local only, not part of the package.
+article/
+.claude/
+
+# Build output and tooling.
+build/
+.dart_tool/
+.flutter-plugins-dependencies
+coverage/
+**/doc/api/
+
+# Editor and OS noise.
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.swp
