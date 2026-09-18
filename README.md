@@ -209,51 +209,39 @@ will meet them the moment you point Flutter at the new toolchain:
 
 The example app in this repository carries both workarounds.
 
-## How this works before Xcode 27.1
+## How it compiles on every Xcode
 
-The iPhone Duo hinge APIs, `UIHingeInteraction`, `hinge.status`, `hinge.angle`
-and `view.reservedRegions(kind:)`, ship in the **iOS 27.1 SDK**. Apple has not
-published reference documentation for them yet; everything known comes from
-Tech Talks 111461 to 111466.
+The hinge APIs ship in the **iOS 27.1 SDK**. Naming those types in Swift would
+force Xcode 27.1 on everyone who depends on this package, so the default path
+resolves them through the Objective-C runtime instead:
 
-Naming those types in Swift would raise the required toolchain for everyone and
-push the deployment target to iOS 27. Instead this package resolves them
-through the Objective-C runtime:
-
-- No iOS 27 type appears in Swift source, so old SDKs compile it fine.
+- No iOS 27 type appears in Swift source, so older SDKs compile it fine.
 - Deployment target stays at **iOS 15.0**, the lowest value Xcode 27.1 accepts.
-- Selector spellings are not only guessed. When the candidate list misses, the
-  real selector is **discovered** from the runtime.
 - Conformance is checked with `class_conformsToProtocol` before anything is
-  handed to `addInteraction`, and every KVC read is gated on the property
-  actually existing.
-- A wrong guess turns the feature off. It does not crash.
+  handed to `addInteraction`, and every property read is gated on the property
+  actually existing. A failed lookup turns the feature off rather than crashing.
 
-Five strategies are tried in order, namely change handler, delegate, KVO,
-per-frame polling and notifications, and whichever one worked is reported back:
+There is also a typed path compiled against the real headers, behind the
+`FOLDABLE_NATIVE_API` flag. Both were run on the iPhone Duo simulator and report
+identical readings; `capabilities.strategy` tells you which one is live:
 
 ```dart
 final caps = await Foldable.capabilities;
-print(caps.strategy);          // e.g. interactionKVO
-print(caps.angleUnitVerified); // false until confirmed on real hardware
+print(caps.strategy);  // "updateHandler" (runtime) or "native" (typed)
 ```
 
-When Xcode 27.1 is available, uncomment one line in `Package.swift` and one in
-the podspec to compile `NativeSources.swift` against the real types. **The Dart
-API does not change.** The runtime path stays as the fallback for anyone still
-on an older toolchain.
+To use the typed path, uncomment one line in `Package.swift` and one in the
+podspec. **The Dart API does not change either way**, and the runtime path stays
+as the default so the package keeps building on older toolchains.
 
-## Help confirm the real iPhone Duo API
-
-If you have an iPhone Duo, this is the most useful thing you can contribute:
+If you ever need to see what the running OS actually exposes, there is a
+diagnostic that dumps the real selectors, properties and protocols:
 
 ```dart
 final dump = await Foldable.debugDumpNativeApi();
 ```
 
-It returns the real selectors, properties and delegate signatures from the
-device. The example app has an **API dump** screen that shows it. Please open
-an issue with the output.
+The example app shows it on an **API dump** screen.
 
 ## Verified against the iPhone Duo simulator
 
@@ -273,8 +261,9 @@ the iPhone Duo simulator, running both code paths:
 - The fold division is **40pt** wide on a 951x669pt inner display, and is
   reported with `isActive: false` while the device is flat.
 
-Still unverified, because a simulator cannot show it: how the Flutter view
-behaves when the device closes and the app moves to the cover display.
+Closing the device works too: the app moves to the cover display, reports
+`closed` at 0 degrees and switches to compact width. What a simulator cannot
+show is how that transition behaves on real hardware.
 
 ## Scope
 

@@ -19,24 +19,6 @@ enum ObjCRuntimeSupport {
 
   // MARK: - Selector discovery
 
-  /// Returns the first selector in `names` the object actually responds to.
-  static func firstResponding(_ object: NSObject, _ names: [String]) -> Selector? {
-    for name in names {
-      let selector = NSSelectorFromString(name)
-      if object.responds(to: selector) { return selector }
-    }
-    return nil
-  }
-
-  /// Returns the first selector in `names` instances of `cls` respond to.
-  static func firstInstanceResponding(_ cls: AnyClass, _ names: [String]) -> Selector? {
-    for name in names {
-      let selector = NSSelectorFromString(name)
-      if cls.instancesRespond(to: selector) { return selector }
-    }
-    return nil
-  }
-
   /// Every instance selector on `cls` whose name contains `substring`.
   ///
   /// This is how the package avoids guessing Objective-C selector spellings:
@@ -103,21 +85,6 @@ enum ObjCRuntimeSupport {
       if index == segments.count - 1 { return next }
       guard let nextObject = next as? NSObject else { return nil }
       current = nextObject
-    }
-    return nil
-  }
-
-  /// Reads the first key path that yields a number.
-  static func number(from object: NSObject, keyPaths: [String]) -> Double? {
-    for keyPath in keyPaths {
-      guard let raw = value(from: object, keyPath: keyPath) else { continue }
-      if let number = raw as? NSNumber { return number.doubleValue }
-      // A wrapper such as NSMeasurement exposes its magnitude one level down.
-      if let wrapper = raw as? NSObject,
-        let inner = value(from: wrapper, keyPath: "doubleValue") as? NSNumber
-      {
-        return inner.doubleValue
-      }
     }
     return nil
   }
@@ -228,8 +195,4 @@ enum ObjCRuntimeSupport {
     return initialise(raw, initSelector, argument)?.takeRetainedValue() as? NSObject
   }
 
-  /// The number of arguments a selector takes, from its colon count.
-  static func argumentCount(of selector: Selector) -> Int {
-    return NSStringFromSelector(selector).filter { $0 == ":" }.count
-  }
 }

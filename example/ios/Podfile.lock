@@ -1,6 +1,6 @@
 PODS:
   - Flutter (1.0.0)
-  - foldable (0.2.0):
+  - foldable (0.3.0):
     - Flutter
   - integration_test (0.0.1):
     - Flutter
@@ -20,7 +20,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  foldable: 129ce515a22350aa37234cc4c552d983a867859a
+  foldable: 612e41d89ce40902e28a331076bb8168cdbdec5a
   integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
 
 PODFILE CHECKSUM: fd978df3f5241942228514415e32c4484ad43bf1
