@@ -39,7 +39,7 @@ hinge, and by default changes no framework behaviour whatsoever.
 
 ```yaml
 dependencies:
-  foldable: ^0.3.0
+  foldable: ^1.0.0
 ```
 
 ## Use

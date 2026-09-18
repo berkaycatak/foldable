@@ -1,8 +1,11 @@
-## 0.3.0
+## 1.0.0
 
-Verified against the real iOS 27.1 SDK and the iPhone Duo simulator. The hinge
-APIs turned out to differ from what the Tech Talks implied, so the native layer
-was rewritten against the real headers.
+First stable release. The native layer is now written against the real iOS 27.1
+SDK headers and both code paths are verified on the iPhone Duo simulator, so the
+API is settled enough to commit to: anything breaking from here waits for 2.0.0.
+
+The hinge APIs shipped differently from what the Tech Talks implied, so the
+native layer was rewritten against the real headers.
 
 - **Fixed:** the runtime path never worked. `UIHingeInteraction.init` is
   unavailable, the only initialiser is `initWithUpdateHandler:`, the hinge
