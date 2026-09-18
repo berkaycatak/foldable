@@ -8,6 +8,10 @@
 article/
 .claude/
 
+# README demo, 1.5 MB. pub.dev renders it from the GitHub raw URL, so it does
+# not need to travel inside the archive.
+doc/
+
 # Build output and tooling.
 build/
 .dart_tool/

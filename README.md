@@ -12,6 +12,11 @@ outright that display features are *"populated only on Android"*, so none of
 this information reaches a Flutter app running on iPhone Duo. This package
 bridges it over a platform channel.
 
+![The example app on the iPhone Duo simulator: the hinge angle counts up from 0 degrees while the device is unfolded, the posture changes from closed to fullyOpen, and the size class switches from compact to regular](https://raw.githubusercontent.com/berkaycatak/foldable/main/doc/demo.gif)
+
+*Live on the iPhone Duo simulator: posture, hinge angle in degrees, size class
+and reserved regions, all reported as the device is folded and unfolded.*
+
 **Safe to depend on unconditionally.** It compiles against older SDKs just as
 well as the iOS 27.1 one, adds nothing to your build on devices without a
 hinge, and by default changes no framework behaviour whatsoever.
