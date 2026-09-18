@@ -1,3 +1,9 @@
+## 1.0.1
+
+- Adds pub.dev screenshots: a still of the example app on a partially folded
+  iPhone Duo, which becomes the package thumbnail, and the fold/unfold
+  recording. No code changes.
+
 ## 1.0.0
 
 First stable release. The native layer is now written against the real iOS 27.1
