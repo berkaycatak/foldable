@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../model/foldable_capabilities.dart';
 import '../model/foldable_data.dart';
 import 'foldable_codec.dart';
 import 'foldable_platform.dart';
@@ -61,7 +62,11 @@ class MethodChannelFoldable extends FoldablePlatform {
       final FoldableData snapshot = await getSnapshot();
       if (controller.isClosed) return;
 
-      if (!snapshot.capabilities.isFoldable) {
+      // A device only reveals that it has no hinge through an update, so the
+      // platform answers `unknown` until the first one lands. Closing on that
+      // would mean never finding out. Only a settled answer closes the stream.
+      if (!snapshot.isFoldable &&
+          snapshot.capabilities.supportLevel != FoldableSupportLevel.unknown) {
         await controller.close();
         return;
       }

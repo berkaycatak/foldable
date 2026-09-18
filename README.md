@@ -12,9 +12,9 @@ outright that display features are *"populated only on Android"*, so none of
 this information reaches a Flutter app running on iPhone Duo. This package
 bridges it over a platform channel.
 
-**Safe to depend on unconditionally.** It compiles against iOS 13 and older
-SDKs, adds nothing to your build on devices without a hinge, and by default
-changes no framework behaviour whatsoever.
+**Safe to depend on unconditionally.** It compiles against older SDKs just as
+well as the iOS 27.1 one, adds nothing to your build on devices without a
+hinge, and by default changes no framework behaviour whatsoever.
 
 ### What you get on iPhone Duo
 
@@ -34,7 +34,7 @@ changes no framework behaviour whatsoever.
 
 ```yaml
 dependencies:
-  foldable: ^0.2.0
+  foldable: ^0.3.0
 ```
 
 ## Use
@@ -123,14 +123,14 @@ Flutter's `DisplayFeatureSubScreen` confines dialogs, bottom sheets, popup
 menus and pickers to one side of any display feature it considers obstructing.
 Eleven framework files inherit that behaviour.
 
-On the iPhone Duo inner display, which is 626x890pt, publishing a 40pt fold
-measures out as:
+On the iPhone Duo inner display, measured on the simulator at 951x669pt with a
+40pt fold, publishing that fold measures out as:
 
 | Surface | Without bridging | With `full` |
 |---|---|---|
-| `AlertDialog` | 626pt wide | ~293pt |
-| Modal bottom sheet | 626pt | ~293pt |
-| `DatePickerDialog` | 626pt | ~293pt |
+| `AlertDialog` | 951pt wide | ~455pt |
+| Modal bottom sheet | 951pt | ~455pt |
+| `DatePickerDialog` | 951pt | ~455pt |
 
 So this package **does not write to `MediaQuery.displayFeatures` by default**.
 Merely adding a dependency must not change every Material surface in your app.
@@ -178,6 +178,32 @@ Reserved regions only exist from the iOS 27.1 SDK, so an app built against an
 older SDK gets an empty region list from this package even on an iPhone Duo.
 The hinge angle and posture are unaffected.
 
+## If your build breaks on Xcode 27.1
+
+Two problems you will hit there have nothing to do with this package, but you
+will meet them the moment you point Flutter at the new toolchain:
+
+- **Deployment target.** Xcode 27.1 refuses anything below iOS 15.0, and
+  Flutter's own pods still declare 13.0. Raise your app's target and force the
+  pods to match in your `Podfile`:
+
+      post_install do |installer|
+        installer.pods_project.targets.each do |target|
+          flutter_additional_ios_build_settings(target)
+          target.build_configurations.each do |config|
+            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+          end
+        end
+      end
+
+- **`lipo -verify_arch`.** Xcode 27.1's `lipo` accepts only one architecture per
+  call, and Flutter 3.44 passes both simulator slices at once, so the build dies
+  in `debug_unpack_ios` with "does not contain architectures arm64 x86_64" even
+  though `lipo -info` lists both. Building the simulator for a single
+  architecture avoids it, via `ARCHS = arm64` in `ios/Flutter/Debug.xcconfig`.
+
+The example app in this repository carries both workarounds.
+
 ## How this works before Xcode 27.1
 
 The iPhone Duo hinge APIs, `UIHingeInteraction`, `hinge.status`, `hinge.angle`
@@ -190,7 +216,7 @@ push the deployment target to iOS 27. Instead this package resolves them
 through the Objective-C runtime:
 
 - No iOS 27 type appears in Swift source, so old SDKs compile it fine.
-- Deployment target stays at **iOS 13.0**.
+- Deployment target stays at **iOS 15.0**, the lowest value Xcode 27.1 accepts.
 - Selector spellings are not only guessed. When the candidate list misses, the
   real selector is **discovered** from the runtime.
 - Conformance is checked with `class_conformsToProtocol` before anything is
@@ -224,20 +250,26 @@ It returns the real selectors, properties and delegate signatures from the
 device. The example app has an **API dump** screen that shows it. Please open
 an issue with the output.
 
-## Not yet verified
+## Verified against the iPhone Duo simulator
 
-Honest about what is still guesswork until an iPhone Duo is in hand:
+Everything below was read off the iOS 27.1 SDK headers and then confirmed on
+the iPhone Duo simulator, running both code paths:
 
-- `UIHingeInteraction`'s initialiser and delegate signatures
-- The Objective-C selector for `reservedRegions(kind:options:)`, and the raw
-  values of `kind` and `options`
-- The unit and zero point of `hinge.angle`. Readings are normalised to degrees
-  and flagged with `angleUnitVerified: false`
-- The real thickness and position of the iPhone Duo fold division
-- How the Flutter view behaves when the device closes and moves to the cover
-  display
+- `UIHingeInteraction(updateHandler:)` is the only initialiser; `init` and `new`
+  are unavailable. There is no delegate.
+- The hinge arrives on the update, not the interaction: `update.hinge` is nil on
+  a device without one.
+- `UIHingeStatus` raw values start at 1: unknown 0, closed 1, partiallyOpen 2,
+  fullyOpen 3.
+- `hinge.angle` is in **radians**, and 0 means folded shut. Closed reads 0,
+  fully open reads pi. This package reports degrees, so 0 and 180.
+- `reservedRegionsOfKind:options:` takes a `UIViewReservedRegionKind` **object**
+  (`.divisionRegionKind` / `.occlusionRegionKind`), not an enum value.
+- The fold division is **40pt** wide on a 951x669pt inner display, and is
+  reported with `isActive: false` while the device is flat.
 
-Everything above degrades to "no fold reported", never to a crash.
+Still unverified, because a simulator cannot show it: how the Flutter view
+behaves when the device closes and the app moves to the cover display.
 
 ## Scope
 

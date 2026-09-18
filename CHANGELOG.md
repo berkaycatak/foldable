@@ -1,3 +1,30 @@
+## 0.3.0
+
+Verified against the real iOS 27.1 SDK and the iPhone Duo simulator. The hinge
+APIs turned out to differ from what the Tech Talks implied, so the native layer
+was rewritten against the real headers.
+
+- **Fixed:** the runtime path never worked. `UIHingeInteraction.init` is
+  unavailable, the only initialiser is `initWithUpdateHandler:`, the hinge
+  arrives on the update rather than the interaction, and `UIHingeStatus` raw
+  values start at 1. Reserved regions take a `UIViewReservedRegionKind` object,
+  not an enum. All four are corrected and confirmed on device.
+- `hinge.angle` is documented as radians and reads 0 when folded shut, so
+  `angleUnitVerified` now reports `true`.
+- Both code paths are exercised on the simulator and report identical readings:
+  the Objective-C runtime path, and the typed path behind `FOLDABLE_NATIVE_API`
+  now that the real types exist.
+- A device reports the absence of a hinge only through an update, so
+  `supportLevel` can legitimately be `unknown` for a moment. Dart keeps the
+  stream open until the answer settles rather than closing on the first
+  snapshot.
+- **Breaking for the platform interface only:** `HingeSource.hasHinge` is now
+  `Bool?`. The Dart API is unchanged.
+- Minimum deployment target is now **iOS 15.0**, the lowest Xcode 27.1 accepts.
+- README documents the two Flutter 3.44 / Xcode 27.1 build problems and their
+  workarounds, and the measured inner display geometry: 951x669pt with a 40pt
+  fold division.
+
 ## 0.2.0
 
 Adds the iOS size class bridge, and corrects the reserved-region documentation

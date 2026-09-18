@@ -4,56 +4,85 @@ import 'package:integration_test/integration_test.dart';
 
 /// Runs on a real simulator or device.
 ///
-/// On any hardware without a hinge, which today is all of it, these assert
-/// the path every user of this package currently takes: the plugin registers,
-/// reports no fold, and closes its stream cleanly instead of hanging.
+/// The assertions branch on what the platform reports rather than on a device
+/// name: on an iPhone Duo the hinge APIs resolve and a real angle arrives, and
+/// on anything else the package has to degrade cleanly instead of hanging.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('reports a non-foldable device without throwing', (
-    WidgetTester tester,
-  ) async {
-    expect(await Foldable.isFoldable, isFalse);
-  });
-
-  testWidgets('capabilities describe why support is absent', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('capabilities are internally consistent', (tester) async {
     final FoldableCapabilities caps = await Foldable.capabilities;
-    expect(caps.isFoldable, isFalse);
-    // Xcode 26 SDKs have no hinge symbols at all, so nothing resolves.
-    expect(caps.supportLevel, FoldableSupportLevel.unsupported);
-    expect(caps.hingeApiPresent, isFalse);
-    expect(caps.strategy, 'none');
-  });
 
-  testWidgets('hinge status reads as unknown', (WidgetTester tester) async {
-    expect(await Foldable.hingeStatus, HingeStatus.unknown);
-  });
-
-  testWidgets('angle stream completes without emitting', (
-    WidgetTester tester,
-  ) async {
-    // The empty-stream contract: a clean onDone, never a hang.
-    await expectLater(Foldable.hingeAngleStream.toList(), completion(isEmpty));
+    if (caps.hingeApiPresent) {
+      // iOS 27.1 or newer: the symbols resolved.
+      expect(caps.strategy, isNot('none'));
+      expect(
+        caps.supportLevel,
+        anyOf(
+          FoldableSupportLevel.available,
+          FoldableSupportLevel.availableNoHinge,
+          FoldableSupportLevel.unknown,
+        ),
+      );
+    } else {
+      expect(caps.supportLevel, FoldableSupportLevel.unsupported);
+      expect(caps.isFoldable, isFalse);
+    }
   });
 
   testWidgets('size classes come back from the real trait collection', (
-    WidgetTester tester,
+    tester,
   ) async {
     final FoldableData data = await Foldable.snapshot;
-    // Size classes exist on every iOS device, unlike the hinge. On an iPhone
-    // in portrait UIKit reports compact width and regular height.
-    expect(data.horizontalSizeClass, SizeClass.compact);
-    expect(data.verticalSizeClass, SizeClass.regular);
+    expect(
+      data.horizontalSizeClass,
+      anyOf(SizeClass.compact, SizeClass.regular),
+    );
+    expect(data.verticalSizeClass, anyOf(SizeClass.compact, SizeClass.regular));
   });
 
-  testWidgets('native API dump runs and reports no hinge classes', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('hinge resolves to a settled answer', (tester) async {
+    // The platform reports the absence of a hinge through an update, so the
+    // first snapshot can legitimately be "unknown". Give it a moment.
+    FoldableData data = await Foldable.snapshot;
+    for (int i = 0; i < 20 && !data.isFoldable; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      data = await Foldable.snapshot;
+    }
+
+    if (data.isFoldable) {
+      // A foldable device must report a real posture and a real angle.
+      expect(data.status, isNot(HingeStatus.unknown));
+      expect(data.angleDegrees, isNotNull);
+      expect(data.angleDegrees, inInclusiveRange(0.0, 180.0));
+      expect(data.capabilities.angleUnitVerified, isTrue);
+      // ignore: avoid_print
+      print('DUO: status=${data.status.name} '
+          'angle=${data.angleDegrees!.toStringAsFixed(1)} '
+          'strategy=${data.capabilities.strategy} '
+          'regions=${data.regions.length} '
+          'sizeClass=${data.horizontalSizeClass.name}');
+      for (final ReservedRegion r in data.regions) {
+        // ignore: avoid_print
+        print('  region ${r.kind.name} active=${r.isActive} ${r.bounds}');
+      }
+    } else {
+      // No hinge: the streams must complete instead of hanging.
+      await expectLater(
+        Foldable.hingeAngleStream.toList(),
+        completion(isEmpty),
+      );
+    }
+  });
+
+  testWidgets('native API dump reflects the running OS', (tester) async {
     final Map<String, Object?> dump = await Foldable.debugDumpNativeApi();
-    expect(dump['hingeApiPresent'], isFalse);
-    expect(dump['builtWithNativeApi'], isFalse);
+    // ignore: avoid_print
+    print('DUMP hingeApi=${dump['hingeApiPresent']} '
+        'regionApi=${dump['regionApiPresent']} '
+        'native=${dump['builtWithNativeApi']} '
+        'os=${dump['systemVersion']}');
     expect(dump['classes'], isA<Map<Object?, Object?>>());
   });
 }

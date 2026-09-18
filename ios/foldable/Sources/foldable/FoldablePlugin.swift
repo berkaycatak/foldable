@@ -6,8 +6,6 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
 
   private static let methodChannelName = "foldable/methods"
   private static let eventChannelName = "foldable/events"
-
-  /// The wire schema version, matched by the Dart codec.
   private static let wireVersion = 1
 
   private let hingeSource: HingeSource
@@ -29,7 +27,6 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
 
     let handler = HingeStreamHandler(
       hingeSource: instance.hingeSource,
-      regionSource: instance.regionSource,
       snapshotBuilder: { [weak instance] reading in
         instance?.snapshot(with: reading) ?? [:]
       })
@@ -39,12 +36,41 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
       name: eventChannelName, binaryMessenger: registrar.messenger())
     events.setStreamHandler(handler)
 
+    // Installing the interaction early matters: the platform only reveals
+    // whether this device has a hinge through an update, so without an
+    // interaction already running, the first getSnapshot would have to answer
+    // "unknown" and Dart would have nothing to go on.
+    registrar.addApplicationDelegate(instance)
+    instance.installInteractionWhenPossible()
+
     registrar.publish(instance)
+  }
+
+  public func applicationDidBecomeActive(_ application: UIApplication) {
+    installInteractionWhenPossible()
+  }
+
+  /// Attaches the hinge interaction to the Flutter view once one exists.
+  ///
+  /// Retried rather than done once, because at registration time the window
+  /// may not have a root view yet.
+  func installInteractionWhenPossible() {
+    guard let view = Self.hostView() else {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        guard let self = self, Self.hostView() != nil else { return }
+        self.installInteractionWhenPossible()
+      }
+      return
+    }
+    hingeSource.start(on: view) { [weak self] reading in
+      self?.streamHandler?.emit(reading)
+    }
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "getSnapshot":
+      installInteractionWhenPossible()
       result(snapshot(with: hingeSource.currentReading))
     case "debugDumpNativeApi":
       result(FoldableDiagnostics.dump())
@@ -55,19 +81,23 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
 
   // MARK: - Snapshot
 
-  /// Builds the payload shared by `getSnapshot` and every stream event.
   func snapshot(with reading: HingeReading?) -> [String: Any] {
-    let hasHinge = hingeSource.hasHinge
     let hingeApi = FoldableSourceFactory.hingeApiPresent
     let regionApi = FoldableSourceFactory.regionApiPresent
+    let hasHinge = hingeSource.hasHinge
 
+    // `hasHinge` is nil until the first update lands. Reporting that as
+    // "unsupported" would be a lie that Dart cannot recover from, so it is
+    // reported as unknown and Dart keeps the stream open until it is settled.
     let supportLevel: String
     if !hingeApi {
       supportLevel = "unsupported"
-    } else if hasHinge {
+    } else if hasHinge == true {
       supportLevel = "available"
-    } else {
+    } else if hasHinge == false {
       supportLevel = "availableNoHinge"
+    } else {
+      supportLevel = "unknown"
     }
 
     let view = Self.hostView()
@@ -76,19 +106,16 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     var payload: [String: Any] = [
       "wireVersion": Self.wireVersion,
       "supportLevel": supportLevel,
-      "isFoldable": hasHinge,
+      "isFoldable": hasHinge == true,
       "hingeApiPresent": hingeApi,
       "regionApiPresent": regionApi,
       "angleUnitVerified": reading?.angleUnitVerified ?? false,
       "strategy": hingeSource.strategy,
       "status": (reading?.status ?? .unknown).rawValue,
       "regions": regions(in: view).map { $0.toMap() },
-      // Size classes are available on every device, hinge or not.
       "horizontalSizeClass": sizeClasses.horizontal.rawValue,
       "verticalSizeClass": sizeClasses.vertical.rawValue,
     ]
-    // NSNull encodes as Dart null; omitting the key would too, but being
-    // explicit keeps the payload shape stable.
     payload["angleDegrees"] = reading?.angleDegrees ?? NSNull()
     return payload
   }
@@ -98,21 +125,18 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     return regionSource.regions(in: view)
   }
 
-  /// Finds the view the plugin attaches to.
-  ///
-  /// `FlutterPluginRegistrar` does not expose one, so it is resolved from the
-  /// active scene and held weakly by the caller.
+  /// The view the interaction attaches to and regions are read from.
   static func hostView() -> UIView? {
     for scene in UIApplication.shared.connectedScenes {
       guard let windowScene = scene as? UIWindowScene,
         windowScene.activationState == .foregroundActive
           || windowScene.activationState == .foregroundInactive
       else { continue }
-      if let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }) {
-        return keyWindow.rootViewController?.view ?? keyWindow
-      }
-      if let window = windowScene.windows.first {
-        return window.rootViewController?.view ?? window
+      let window =
+        windowScene.windows.first(where: { $0.isKeyWindow })
+        ?? windowScene.windows.first
+      if let view = window?.rootViewController?.view ?? window {
+        return view
       }
     }
     return nil
@@ -123,71 +147,63 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
 final class HingeStreamHandler: NSObject, FlutterStreamHandler {
 
   private let hingeSource: HingeSource
-  private let regionSource: RegionSource
   private let snapshotBuilder: (HingeReading?) -> [String: Any]
   private var sink: FlutterEventSink?
 
   init(
     hingeSource: HingeSource,
-    regionSource: RegionSource,
     snapshotBuilder: @escaping (HingeReading?) -> [String: Any]
   ) {
     self.hingeSource = hingeSource
-    self.regionSource = regionSource
     self.snapshotBuilder = snapshotBuilder
     super.init()
   }
 
   /// Starts streaming, or closes the stream cleanly.
   ///
-  /// This deliberately never returns a `FlutterError`. Dart reports an
-  /// EventChannel activation failure through `FlutterError.reportError`
-  /// instead of the stream, so an error here would leave the listener with no
-  /// data, no error and no completion, so it hangs forever. Sending
-  /// `FlutterEndOfEventStream` instead gives a device without a hinge a clean
-  /// `onDone`, which is the contract the Dart side documents.
+  /// Never returns a `FlutterError`: Dart reports an EventChannel activation
+  /// failure through `FlutterError.reportError` rather than the stream, so an
+  /// error here would leave the listener with no data, no error and no
+  /// completion. `FlutterEndOfEventStream` gives a clean `onDone` instead.
   func onListen(
     withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
     sink = events
 
-    guard let view = FoldablePlugin.hostView(), hingeSource.hasHinge else {
+    guard FoldableSourceFactory.hingeApiPresent else {
       events(FlutterEndOfEventStream)
       return nil
     }
 
-    let started = hingeSource.start(on: view) { [weak self] reading in
-      self?.emit(reading)
+    if let current = hingeSource.currentReading {
+      events(snapshotBuilder(current))
+      // Already settled as "no hinge": nothing further will ever arrive.
+      if hingeSource.hasHinge == false {
+        events(FlutterEndOfEventStream)
+      }
     }
-
-    guard started else {
-      events(FlutterEndOfEventStream)
-      return nil
-    }
-
-    // Replay the current state so a listener is not blank until the hinge
-    // next moves.
-    emit(hingeSource.currentReading)
     return nil
   }
 
-  /// Stops streaming.
-  ///
-  /// May be called with `nil` arguments to separate two consecutive setups
-  /// during hot restart, so it is idempotent.
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
-    hingeSource.stop()
     sink = nil
     return nil
   }
 
-  private func emit(_ reading: HingeReading?) {
+  /// Forwards an update, and closes the stream once it is known there is no
+  /// hinge, so a listener is never left waiting on a device that has none.
+  func emit(_ reading: HingeReading?) {
     guard let sink = sink else { return }
     let payload = snapshotBuilder(reading)
-    if Thread.isMainThread {
+    let settledWithoutHinge = hingeSource.hasHinge == false
+    let deliver = {
       sink(payload)
+      if settledWithoutHinge { sink(FlutterEndOfEventStream) }
+    }
+    if Thread.isMainThread {
+      deliver()
     } else {
-      DispatchQueue.main.async { sink(payload) }
+      DispatchQueue.main.async(execute: deliver)
     }
   }
 }

@@ -21,7 +21,7 @@ class _FoldableExampleAppState extends State<FoldableExampleApp> {
   final StreamController<FoldableData> _simulator =
       StreamController<FoldableData>.broadcast();
 
-  bool _simulate = true;
+  bool _simulate = false;
   DisplayFeatureBridgeMode _bridgeMode = DisplayFeatureBridgeMode.none;
   HingeStatus _status = HingeStatus.fullyOpen;
   double _angle = 180;
@@ -235,8 +235,19 @@ class _AngleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double? angle = DuoMediaQuery.angleOf(context);
+    // Live, unthrottled: DuoMediaQuery.angleOf applies a 0.5 degree threshold,
+    // which is right for layout but hides small movements from the reader.
+    return StreamBuilder<double>(
+      stream: Foldable.hingeAngleStream,
+      builder: (BuildContext context, AsyncSnapshot<double> snapshot) {
+        final double? angle =
+            snapshot.data ?? DuoMediaQuery.angleOf(context);
+        return _buildCard(context, angle);
+      },
+    );
+  }
 
+  Widget _buildCard(BuildContext context, double? angle) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'foldable'
-  s.version          = '0.2.0'
+  s.version          = '0.3.0'
   s.summary          = 'Hinge angle and fold posture for the foldable iPhone.'
   s.description      = <<-DESC
 Exposes the iPhone Duo hinge angle, fold posture and reserved fold/camera
@@ -17,7 +17,7 @@ without a hinge it reports isFoldable: false and an empty stream.
   s.source           = { :path => '.' }
   s.source_files = 'foldable/Sources/foldable/**/*'
   s.dependency 'Flutter'
-  s.platform = :ios, '13.0'
+  s.platform = :ios, '15.0'
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = {

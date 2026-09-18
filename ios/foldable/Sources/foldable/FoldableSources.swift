@@ -61,8 +61,13 @@ protocol HingeSource: AnyObject {
   /// Whether the hinge API symbols exist in this process.
   static var isAvailable: Bool { get }
 
-  /// Whether this particular device has a hinge.
-  var hasHinge: Bool { get }
+  /// Whether this device has a hinge, or `nil` while that is still unknown.
+  ///
+  /// The platform only answers this through an update: `update.hinge` is nil on
+  /// a device without one. So there is nothing to read until the interaction
+  /// has been installed and has reported once, and callers must treat `nil` as
+  /// "not yet", not as "no".
+  var hasHinge: Bool? { get }
 
   /// Which resolution path produced the readings, reported for diagnostics.
   var strategy: String { get }
@@ -93,7 +98,7 @@ protocol RegionSource: AnyObject {
 final class UnsupportedHingeSource: HingeSource {
   static var isAvailable: Bool { return true }
 
-  var hasHinge: Bool { return false }
+  var hasHinge: Bool? { return false }
   var strategy: String { return "none" }
   var currentReading: HingeReading? { return nil }
 

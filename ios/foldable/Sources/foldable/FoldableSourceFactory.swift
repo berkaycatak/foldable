@@ -9,7 +9,7 @@ enum FoldableSourceFactory {
   /// Builds a hinge source, preferring real SDK types when available.
   static func makeHingeSource() -> HingeSource {
     #if FOLDABLE_NATIVE_API
-      if NativeHingeSource.isAvailable { return NativeHingeSource() }
+      if #available(iOS 27.1, *) { return NativeHingeSource() }
     #endif
     if RuntimeHingeSource.isAvailable { return RuntimeHingeSource() }
     return UnsupportedHingeSource()
@@ -18,7 +18,7 @@ enum FoldableSourceFactory {
   /// Builds a region source, preferring real SDK types when available.
   static func makeRegionSource() -> RegionSource {
     #if FOLDABLE_NATIVE_API
-      if NativeRegionSource.isAvailable { return NativeRegionSource() }
+      if #available(iOS 27.1, *) { return NativeRegionSource() }
     #endif
     if RuntimeRegionSource.isAvailable { return RuntimeRegionSource() }
     return UnsupportedRegionSource()
@@ -27,7 +27,7 @@ enum FoldableSourceFactory {
   /// Whether the hinge API symbols exist in this process.
   static var hingeApiPresent: Bool {
     #if FOLDABLE_NATIVE_API
-      if NativeHingeSource.isAvailable { return true }
+      if #available(iOS 27.1, *) { return true }
     #endif
     return RuntimeHingeSource.isAvailable
   }
@@ -35,7 +35,7 @@ enum FoldableSourceFactory {
   /// Whether the reserved-region API exists in this process.
   static var regionApiPresent: Bool {
     #if FOLDABLE_NATIVE_API
-      if NativeRegionSource.isAvailable { return true }
+      if #available(iOS 27.1, *) { return true }
     #endif
     return RuntimeRegionSource.isAvailable
   }

@@ -1,2 +1,9 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// Xcode 27.1's lipo rejects `-verify_arch` with more than one architecture,
+// and Flutter 3.44 passes both simulator archs at once, so the build fails in
+// debug_unpack_ios before reaching any app code. Building the simulator slice
+// for the host arch only sidesteps it. Remove once Flutter fixes the check.
+ARCHS = arm64
+ONLY_ACTIVE_ARCH = YES

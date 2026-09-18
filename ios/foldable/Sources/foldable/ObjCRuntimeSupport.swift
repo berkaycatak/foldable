@@ -145,33 +145,87 @@ enum ObjCRuntimeSupport {
 
   // MARK: - Calling methods with non-object arguments
 
-  private typealias OneIntArrayIMP =
-    @convention(c) (AnyObject, Selector, Int) -> NSArray?
-  private typealias TwoIntArrayIMP =
-    @convention(c) (AnyObject, Selector, Int, Int) -> NSArray?
+  // Objective-C methods return `id` at +0 (autoreleased) and initialisers at
+  // +1. Swift cannot infer that through a `@convention(c)` cast, so these
+  // signatures return `Unmanaged` and each call site states the ownership it
+  // is taking. Getting this wrong is an over-release, not a compile error.
+  private typealias ObjectArgArrayIMP =
+    @convention(c) (AnyObject, Selector, AnyObject) -> Unmanaged<NSArray>?
+  private typealias ObjectAndUIntArrayIMP =
+    @convention(c) (AnyObject, Selector, AnyObject, UInt) -> Unmanaged<NSArray>?
+  private typealias AllocIMP =
+    @convention(c) (AnyClass, Selector) -> Unmanaged<AnyObject>?
+  private typealias InitWithObjectIMP =
+    @convention(c) (AnyObject, Selector, AnyObject) -> Unmanaged<AnyObject>?
 
-  /// Invokes a method taking one or two integer arguments and returning an
-  /// array.
+  /// Calls a method that takes one object, or one object plus an options mask,
+  /// and returns an array.
   ///
-  /// `perform(_:with:)` only passes objects and `NSInvocation` is unavailable
-  /// in Swift, so the implementation pointer is cast to a C function instead.
+  /// `perform(_:with:)` cannot pass the `NSUInteger` options argument and
+  /// `NSInvocation` does not exist in Swift, so the implementation pointer is
+  /// cast to a C function instead.
   static func callArrayMethod(
-    on object: NSObject, selector: Selector, args: [Int]
+    on object: NSObject, selector: Selector, object argument: AnyObject,
+    options: UInt? = nil
   ) -> [NSObject]? {
     guard object.responds(to: selector) else { return nil }
     guard let imp = class_getMethodImplementation(type(of: object), selector)
     else { return nil }
 
-    switch args.count {
-    case 1:
-      let function = unsafeBitCast(imp, to: OneIntArrayIMP.self)
-      return function(object, selector, args[0]) as? [NSObject]
-    case 2:
-      let function = unsafeBitCast(imp, to: TwoIntArrayIMP.self)
-      return function(object, selector, args[0], args[1]) as? [NSObject]
-    default:
-      return nil
+    // The returned array is autoreleased, so it is taken unretained.
+    let array: NSArray?
+    if let options = options {
+      let function = unsafeBitCast(imp, to: ObjectAndUIntArrayIMP.self)
+      array = function(object, selector, argument, options)?.takeUnretainedValue()
+    } else {
+      let function = unsafeBitCast(imp, to: ObjectArgArrayIMP.self)
+      array = function(object, selector, argument)?.takeUnretainedValue()
     }
+    return array as? [NSObject]
+  }
+
+  /// Reads a class property such as `+[UIViewReservedRegionKind divisionRegionKind]`.
+  ///
+  /// Returns `nil` when the class or the selector is missing.
+  static func classObject(_ className: String, _ selectorName: String) -> NSObject? {
+    guard let cls = NSClassFromString(className) else { return nil }
+    let selector = NSSelectorFromString(selectorName)
+    guard let metaclass = object_getClass(cls),
+      class_respondsToSelector(metaclass, selector)
+    else { return nil }
+    // A class accessor returns at +0.
+    return (cls as AnyObject).perform(selector)?.takeUnretainedValue() as? NSObject
+  }
+
+  /// Allocates and initialises an object whose only initialiser takes one
+  /// object argument, such as `-[UIHingeInteraction initWithUpdateHandler:]`.
+  ///
+  /// `init` and `new` are marked unavailable on these classes, so a plain
+  /// `cls.init()` raises. The designated initialiser has to be called directly.
+  ///
+  /// Ownership: `alloc` returns +1 and that reference is handed to the
+  /// initialiser, which consumes it and returns +1 of its own. So the alloc
+  /// result is taken unretained and the init result retained; doing both
+  /// retained would leak, both unretained would crash.
+  static func makeObject(
+    className: String, initSelector selectorName: String, argument: AnyObject
+  ) -> NSObject? {
+    guard let cls = NSClassFromString(className) else { return nil }
+    let initSelector = NSSelectorFromString(selectorName)
+    guard cls.instancesRespond(to: initSelector) else { return nil }
+
+    guard let metaclass = object_getClass(cls),
+      let allocIMP = class_getMethodImplementation(
+        metaclass, NSSelectorFromString("alloc"))
+    else { return nil }
+    let alloc = unsafeBitCast(allocIMP, to: AllocIMP.self)
+    guard let raw = alloc(cls, NSSelectorFromString("alloc"))?.takeUnretainedValue()
+    else { return nil }
+
+    guard let initIMP = class_getMethodImplementation(cls, initSelector)
+    else { return nil }
+    let initialise = unsafeBitCast(initIMP, to: InitWithObjectIMP.self)
+    return initialise(raw, initSelector, argument)?.takeRetainedValue() as? NSObject
   }
 
   /// The number of arguments a selector takes, from its colon count.
