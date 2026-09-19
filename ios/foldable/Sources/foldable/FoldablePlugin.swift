@@ -64,57 +64,44 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     }
     hingeSource.start(on: view) { [weak self] reading in
       self?.streamHandler?.emit(reading)
-      self?.settleRegions(after: reading)
     }
+    observeRegionLayout(in: view)
   }
 
-  // MARK: - Region settling
+  // MARK: - Region changes
 
-  /// Bumped on every hinge update so an older poll stops itself.
-  private var settleGeneration = 0
-  private static let settleInterval: TimeInterval = 0.1
-  private static let settleAttempts = 20
+  private weak var regionObserver: RegionLayoutObserver?
+  private var lastRegionSignature = ""
 
-  /// Re-emits once the fold division agrees with the hinge.
+  /// Re-emits when a reserved region changes.
   ///
-  /// Reserved regions lag the hinge and nothing announces when they catch up.
-  /// Measured on the iPhone Duo simulator: inside the update handler the
-  /// division still has its pre-move `isActive`; laying the device flat it
-  /// clears a few milliseconds later, and folding it only sets about a second
-  /// later, once the hinge comes to rest. The view's bounds do not change, so
-  /// no layout pass or further hinge update arrives to correct the snapshot.
-  private func settleRegions(after reading: HingeReading) {
-    settleGeneration += 1
-    let expectedActive: Bool
-    switch reading.status {
-    case .partiallyOpen: expectedActive = true
-    case .fullyOpen: expectedActive = false
-    default: return
+  /// Reserved regions lag the hinge: inside the update handler the fold
+  /// division still has its pre-move `isActive`, and the view's bounds do not
+  /// change while folding. UIKit has no notification for regions; what it does
+  /// is track a region read made during layout and run layout again when that
+  /// region changes. Measured on the iPhone Duo simulator, that pass follows
+  /// every change of the division, and none follows when the regions are only
+  /// read outside layout. So a view with no content reads them in its
+  /// `layoutSubviews`, which is all it takes.
+  private func observeRegionLayout(in host: UIView) {
+    guard regionObserver == nil else { return }
+    let observer = RegionLayoutObserver(frame: host.bounds)
+    observer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    observer.isUserInteractionEnabled = false
+    observer.onLayout = { [weak self] view in
+      guard let self = self else { return }
+      let signature = self.regions(in: view)
+        .map { "\($0.kind.rawValue):\($0.isActive):\($0.frame)" }
+        .joined(separator: "|")
+      guard signature != self.lastRegionSignature else { return }
+      self.lastRegionSignature = signature
+      // A device that has settled as having no hinge has already had its
+      // stream closed; there is nothing left to tell it.
+      guard self.hingeSource.hasHinge != false else { return }
+      self.streamHandler?.emit(self.hingeSource.currentReading)
     }
-    pollRegions(
-      generation: settleGeneration, expectedActive: expectedActive, reading: reading,
-      attemptsLeft: Self.settleAttempts)
-  }
-
-  private func pollRegions(
-    generation: Int, expectedActive: Bool, reading: HingeReading, attemptsLeft: Int
-  ) {
-    guard attemptsLeft > 0 else { return }
-    // No division at all means an SDK or a window without one: nothing to wait for.
-    guard let division = regions(in: Self.hostView()).first(where: { $0.kind == .division })
-    else { return }
-    if division.isActive == expectedActive {
-      // Already consistent on the first look means the emit that preceded this
-      // call carried the right regions.
-      if attemptsLeft < Self.settleAttempts { streamHandler?.emit(reading) }
-      return
-    }
-    DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleInterval) { [weak self] in
-      guard let self = self, self.settleGeneration == generation else { return }
-      self.pollRegions(
-        generation: generation, expectedActive: expectedActive, reading: reading,
-        attemptsLeft: attemptsLeft - 1)
-    }
+    host.insertSubview(observer, at: 0)
+    regionObserver = observer
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -255,5 +242,17 @@ final class HingeStreamHandler: NSObject, FlutterStreamHandler {
     } else {
       DispatchQueue.main.async(execute: deliver)
     }
+  }
+}
+
+/// Draws nothing and takes no touches. It exists so that the reserved regions
+/// are read during a layout pass, which is what makes UIKit run layout again
+/// when one of them changes.
+private final class RegionLayoutObserver: UIView {
+  var onLayout: ((UIView) -> Void)?
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?(self)
   }
 }

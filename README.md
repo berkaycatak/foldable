@@ -268,9 +268,11 @@ the iPhone Duo simulator, running both code paths:
   Inside the update handler the division still has its pre-move `isActive`:
   laying the device flat it clears 3 to 14 ms later, and folding it only sets
   about a second later, once the hinge comes to rest. The view's bounds do not
-  change, so no layout pass follows either. The plugin re-reads the regions
-  until they agree with the hinge and then emits again, and posture, not
-  `isActive`, decides whether a fold is in effect.
+  change, and UIKit has no notification for regions. What it does is track a
+  region read made during layout and run layout again when that region
+  changes, so the plugin reads them from a view's `layoutSubviews` and emits
+  again on that pass. Posture, not `isActive`, decides whether a fold is in
+  effect.
 
 Closing the device works too: the app moves to the cover display, reports
 `closed` at 0 degrees and switches to compact width. What a simulator cannot

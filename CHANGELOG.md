@@ -1,3 +1,14 @@
+## 1.0.3
+
+- The iOS plugin no longer re-reads the reserved regions on a timer. UIKit
+  tracks a region read made during layout and runs layout again when that
+  region changes, so the regions are now read from a view's `layoutSubviews`
+  and the snapshot is emitted again on that pass. Measured on the iPhone Duo
+  simulator, it follows every change of the fold division: about a second
+  after the hinge reads partially open, and a millisecond or two after it
+  reads fully open.
+- No API changes.
+
 ## 1.0.2
 
 - **Fixed:** a stale fold after laying the device flat. Reserved regions lag

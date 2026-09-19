@@ -1,6 +1,6 @@
 name: foldable
 description: "iPhone Duo hinge angle, fold posture and fold/camera regions for Flutter. Apple foldable iPhone support that stays safe on every non-foldable device."
-version: 1.0.2
+version: 1.0.3
 homepage: https://github.com/berkaycatak/foldable
 repository: https://github.com/berkaycatak/foldable
 issue_tracker: https://github.com/berkaycatak/foldable/issues
