@@ -180,16 +180,17 @@ class _FoldableProviderState extends State<FoldableProvider> {
       _warnAboutUpstreamOnce();
     }
 
-    Widget child = DuoMediaQuery(data: _data, child: widget.child);
-
-    if (_features.isNotEmpty) {
-      child = MediaQuery(
-        data: MediaQuery.of(context).copyWith(displayFeatures: _features),
-        child: child,
-      );
-    }
-
-    return child;
+    // The MediaQuery is always present, even with nothing to publish, so the
+    // shape of the tree never changes. Inserting it only while there were
+    // features remounted everything below on each fold and each change of
+    // bridge mode, discarding scroll positions and State.
+    final MediaQueryData ambient = MediaQuery.of(context);
+    return MediaQuery(
+      data: _features.isEmpty
+          ? ambient
+          : ambient.copyWith(displayFeatures: _features),
+      child: DuoMediaQuery(data: _data, child: widget.child),
+    );
   }
 
   void _warnAboutUpstreamOnce() {

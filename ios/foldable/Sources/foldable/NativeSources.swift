@@ -87,7 +87,7 @@
 
     func regions(in view: UIView) -> [FoldableRegion] {
       var result: [FoldableRegion] = []
-      // The fold is inactive and zero width while flat, so it is requested
+      // The fold is inactive while flat, so it is requested
       // with .includeInactive; an occlusion is only active while that camera
       // is in use, so an inactive one carries no information.
       result += view.reservedRegions(kind: .division, options: .includeInactive)

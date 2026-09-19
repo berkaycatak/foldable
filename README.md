@@ -152,13 +152,17 @@ FoldableProvider(
 | `cutoutsOnly` | Camera cutouts only. Surfaces keep full width. |
 | `full` | Fold published too. Surfaces split, so have an `anchorPoint` plan. |
 
-Regardless of mode, four invariants are enforced so this package can never
+Regardless of mode, five invariants are enforced so this package can never
 split your layout by accident:
 
 - A zero-width region is never published. Combined with `postureHalfOpened` it
   would still satisfy `avoidBounds` and split the screen with *no visible
-  fold*, and the iPhone Duo fold division is exactly zero-width while flat.
+  fold*.
 - Inactive regions are never published.
+- A fold is only published while the hinge reads `partiallyOpen`. The region's
+  `isActive` flag lags the hinge, and right after the device is laid flat it
+  still reads `true` with nothing following to correct it. Trusting it would
+  leave a 40pt fold splitting every dialog on a flat device.
 - Cutouts always carry `DisplayFeatureState.unknown`, which `dart:ui` asserts.
 - Nothing is published while the device is closed, because the view is then on
   the cover display, which has no fold.
@@ -258,7 +262,16 @@ the iPhone Duo simulator, running both code paths:
 - `reservedRegionsOfKind:options:` takes a `UIViewReservedRegionKind` **object**
   (`.divisionRegionKind` / `.occlusionRegionKind`), not an enum value.
 - The fold division is **40pt** wide on a 951x669pt inner display, and is
-  reported with `isActive: false` while the device is flat.
+  reported with `isActive: false` while the device is flat. It keeps its 40pt
+  frame while inactive, rather than collapsing to zero width.
+- Reserved regions **lag the hinge**, and nothing announces when they catch up.
+  Inside the update handler the division still has its pre-move `isActive`:
+  laying the device flat it clears 3 to 14 ms later, and folding it only sets
+  about a second later, once the hinge comes to rest. The view's bounds do not
+  change, so no layout pass follows either. The plugin re-reads the regions
+  until they agree with the hinge and then emits again, and posture, not
+  `isActive`, decides whether a fold is in effect. Thanks to
+  [@erkamyaman](https://github.com/erkamyaman) for reporting this.
 
 Closing the device works too: the app moves to the cover display, reports
 `closed` at 0 degrees and switches to compact width. What a simulator cannot

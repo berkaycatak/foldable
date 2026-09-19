@@ -64,6 +64,56 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     }
     hingeSource.start(on: view) { [weak self] reading in
       self?.streamHandler?.emit(reading)
+      self?.settleRegions(after: reading)
+    }
+  }
+
+  // MARK: - Region settling
+
+  /// Bumped on every hinge update so an older poll stops itself.
+  private var settleGeneration = 0
+  private static let settleInterval: TimeInterval = 0.1
+  private static let settleAttempts = 20
+
+  /// Re-emits once the fold division agrees with the hinge.
+  ///
+  /// Reserved regions lag the hinge and nothing announces when they catch up.
+  /// Measured on the iPhone Duo simulator: inside the update handler the
+  /// division still has its pre-move `isActive`; laying the device flat it
+  /// clears a few milliseconds later, and folding it only sets about a second
+  /// later, once the hinge comes to rest. The view's bounds do not change, so
+  /// no layout pass or further hinge update arrives to correct the snapshot.
+  private func settleRegions(after reading: HingeReading) {
+    settleGeneration += 1
+    let expectedActive: Bool
+    switch reading.status {
+    case .partiallyOpen: expectedActive = true
+    case .fullyOpen: expectedActive = false
+    default: return
+    }
+    pollRegions(
+      generation: settleGeneration, expectedActive: expectedActive, reading: reading,
+      attemptsLeft: Self.settleAttempts)
+  }
+
+  private func pollRegions(
+    generation: Int, expectedActive: Bool, reading: HingeReading, attemptsLeft: Int
+  ) {
+    guard attemptsLeft > 0 else { return }
+    // No division at all means an SDK or a window without one: nothing to wait for.
+    guard let division = regions(in: Self.hostView()).first(where: { $0.kind == .division })
+    else { return }
+    if division.isActive == expectedActive {
+      // Already consistent on the first look means the emit that preceded this
+      // call carried the right regions.
+      if attemptsLeft < Self.settleAttempts { streamHandler?.emit(reading) }
+      return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleInterval) { [weak self] in
+      guard let self = self, self.settleGeneration == generation else { return }
+      self.pollRegions(
+        generation: generation, expectedActive: expectedActive, reading: reading,
+        attemptsLeft: attemptsLeft - 1)
     }
   }
 

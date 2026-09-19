@@ -1,3 +1,28 @@
+## 1.0.2
+
+- **Fixed:** a stale fold after laying the device flat. Reserved regions lag
+  the hinge: inside the update handler the fold division still carries its
+  pre-move `isActive`, and because the view's bounds do not change, no layout
+  pass or further hinge update follows to correct it. With
+  `DisplayFeatureBridgeMode.full` that left a 40pt `postureFlat` fold splitting
+  every dialog on a flat device, and `FoldInfo.spansDivision` stayed `true`.
+- The posture now decides: a fold is only published, and `FoldInfo` only
+  reports a division, while the hinge reads `partiallyOpen`.
+- The iOS plugin re-reads the regions after a hinge update until they agree
+  with the hinge, for up to two seconds, and emits again, so
+  `FoldableData.regions` settles too. Measured on the iPhone Duo simulator:
+  flattening clears `isActive` 3 to 14 ms after the handler, folding sets it
+  about a second later.
+- **Fixed:** `FoldableProvider` inserted its `MediaQuery` only while it had
+  display features to publish. That changed the shape of the widget tree, so
+  each fold and unfold in `full` mode, and each change of `bridgeMode`,
+  remounted everything below the provider and discarded scroll positions and
+  `State`. The `MediaQuery` is now always present.
+- **Docs:** the inactive division keeps its 40pt frame rather than collapsing
+  to zero width.
+
+Reported by @erkamyaman.
+
 ## 1.0.1
 
 - Adds pub.dev screenshots: a still of the example app on a partially folded

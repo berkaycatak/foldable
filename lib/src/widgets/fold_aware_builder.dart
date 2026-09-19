@@ -169,11 +169,16 @@ class _FoldAwareBuilderState extends State<FoldAwareBuilder> {
             angleDegrees: data.angleDegrees,
             horizontalSizeClass: data.horizontalSizeClass,
             verticalSizeClass: data.verticalSizeClass,
-            divisionRects: _toLocal(
-              data.regions.where(
-                (ReservedRegion r) => r.kind == ReservedRegionKind.division,
-              ),
-            ),
+            // Only while partially open: the region's isActive flag lags the
+            // hinge and can stay true after the device has been laid flat.
+            divisionRects: data.status == HingeStatus.partiallyOpen
+                ? _toLocal(
+                    data.regions.where(
+                      (ReservedRegion r) =>
+                          r.kind == ReservedRegionKind.division,
+                    ),
+                  )
+                : const <Rect>[],
             occlusionRects: _toLocal(
               data.regions.where(
                 (ReservedRegion r) => r.kind == ReservedRegionKind.occlusion,

@@ -104,6 +104,41 @@ void main() {
     expect(seen.divisionRect, isNotNull);
   });
 
+  testWidgets('ignores a division that still claims to be active when flat', (
+    WidgetTester tester,
+  ) async {
+    // The region's isActive flag lags the hinge: just after the device is laid
+    // flat it still reads true. The posture wins, so no two-pane layout sticks.
+    final StreamController<FoldableData> feed =
+        StreamController<FoldableData>.broadcast();
+    addTearDown(feed.close);
+
+    late FoldInfo seen;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FoldableProvider(
+          debugData: feed.stream,
+          child: FoldAwareBuilder(
+            builder: (BuildContext context, BoxConstraints c, FoldInfo fold) {
+              seen = fold;
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      ),
+    );
+
+    await pushData(
+      tester,
+      feed,
+      dataFor(status: HingeStatus.fullyOpen, angle: 180),
+    );
+
+    expect(seen.isFullyOpen, isTrue);
+    expect(seen.divisionRects, isEmpty);
+    expect(seen.spansDivision, isFalse);
+  });
+
   testWidgets('rebuilds on posture change', (WidgetTester tester) async {
     final StreamController<FoldableData> feed =
         StreamController<FoldableData>.broadcast();

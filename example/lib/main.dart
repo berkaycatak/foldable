@@ -266,7 +266,8 @@ class _AngleCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.displaySmall,
                 ),
                 const SizedBox(width: 24),
-                Expanded(
+                SizedBox(
+                  width: 64,
                   child: Transform.rotate(
                     angle: ((angle ?? 180) - 180) * 3.1415926535 / 180 / 2,
                     alignment: Alignment.centerLeft,

@@ -46,7 +46,7 @@ final class RuntimeRegionSource: RegionSource {
     guard let selector = resolveSelector() else { return [] }
 
     var result: [FoldableRegion] = []
-    // The fold is inactive and zero width while the device is flat, so it is
+    // The fold is inactive while the device is flat, so it is
     // requested with includeInactive: knowing where it will appear is useful
     // even before it does. Inactive regions are reported, never dropped.
     if let kind = divisionKindObject() {

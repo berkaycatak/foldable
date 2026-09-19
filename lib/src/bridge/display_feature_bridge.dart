@@ -41,7 +41,7 @@ enum DisplayFeatureBridgeMode {
 
 /// Converts [ReservedRegion]s into `dart:ui` [DisplayFeature]s.
 ///
-/// The conversion enforces four invariants that together make it impossible
+/// The conversion enforces five invariants that together make it impossible
 /// for this package to split an application's layout by accident.
 abstract final class DisplayFeatureBridge {
   /// Builds the display features to publish, or an empty list.
@@ -51,9 +51,11 @@ abstract final class DisplayFeatureBridge {
   /// * **R1**: a region whose shortest side is zero is never published.
   ///   Combined with `postureHalfOpened` such a feature would still satisfy
   ///   `DisplayFeatureSubScreen.avoidBounds`, splitting the screen in two with
-  ///   no visible fold. Apple's `.division` is exactly zero-width while the
-  ///   device is flat, so this trap is easy to fall into.
+  ///   no visible fold.
   /// * **R2**: inactive regions are never published.
+  /// * **R5**: a division is only published while the hinge reads
+  ///   [HingeStatus.partiallyOpen]. The region's `isActive` flag lags the
+  ///   hinge, so posture decides whether a fold is in effect.
   /// * **R3**: [DisplayFeatureType.cutout] always carries
   ///   [DisplayFeatureState.unknown], which `dart:ui` asserts.
   /// * **R4**: nothing is published while the device is closed. `dart:ui` has
@@ -85,7 +87,14 @@ abstract final class DisplayFeatureBridge {
       );
     }
 
-    if (mode == DisplayFeatureBridgeMode.full) {
+    // R5: the hinge status is authoritative and immediate; the region's
+    // isActive flag lags it. Measured on the iPhone Duo simulator, a division
+    // is still reported active for a few milliseconds after the hinge reads
+    // fully open, and no further update follows to correct it. Trusting that
+    // stale flag would leave a 40pt postureFlat fold splitting every dialog
+    // on a device lying flat, so a fold only exists while partially open.
+    if (mode == DisplayFeatureBridgeMode.full &&
+        status == HingeStatus.partiallyOpen) {
       for (final ReservedRegion region in regions) {
         if (region.kind != ReservedRegionKind.division) continue;
         if (!region.isActive) continue; // R2

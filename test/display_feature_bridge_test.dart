@@ -141,13 +141,25 @@ void main() {
       expect(features.single.state, DisplayFeatureState.postureHalfOpened);
     });
 
-    test('fully open maps to postureFlat', () {
+    test('fully open publishes no fold even if the region says active', () {
+      // R5. The region's isActive flag lags the hinge: right after the device
+      // is laid flat it still reads true, and nothing follows to correct it.
+      // A postureFlat fold 40pt wide would split every dialog on a flat device.
       final List<DisplayFeature> features = DisplayFeatureBridge.build(
         mode: DisplayFeatureBridgeMode.full,
         regions: <ReservedRegion>[division(active: true)],
         status: HingeStatus.fullyOpen,
       );
-      expect(features.single.state, DisplayFeatureState.postureFlat);
+      expect(features, isEmpty);
+    });
+
+    test('unknown status publishes no fold', () {
+      final List<DisplayFeature> features = DisplayFeatureBridge.build(
+        mode: DisplayFeatureBridgeMode.full,
+        regions: <ReservedRegion>[division(active: true)],
+        status: HingeStatus.unknown,
+      );
+      expect(features, isEmpty);
     });
 
     test('framework splits the screen into two halves', () {
@@ -178,7 +190,7 @@ void main() {
       final List<DisplayFeature> features = DisplayFeatureBridge.build(
         mode: DisplayFeatureBridgeMode.full,
         regions: <ReservedRegion>[division(active: true)],
-        status: HingeStatus.fullyOpen,
+        status: HingeStatus.partiallyOpen,
       );
       expect(() => features.add(features.first), throwsUnsupportedError);
     });

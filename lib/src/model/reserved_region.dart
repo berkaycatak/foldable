@@ -10,8 +10,9 @@ enum ReservedRegionKind {
   ///
   /// A division *divides* the usable area without covering it: the display
   /// curves through the centre but keeps rendering. While the device is flat
-  /// the division is inactive and zero-width, so it is only returned when the
-  /// platform is queried with `.includeInactive`.
+  /// the division is inactive, so it is only returned when the platform is
+  /// queried with `.includeInactive`. Its `isActive` flag lags the hinge, so
+  /// prefer the posture when deciding whether a fold is in effect.
   division('division'),
 
   /// An area physically covered by hardware such as the FaceTime camera.
