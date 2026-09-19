@@ -270,8 +270,7 @@ the iPhone Duo simulator, running both code paths:
   about a second later, once the hinge comes to rest. The view's bounds do not
   change, so no layout pass follows either. The plugin re-reads the regions
   until they agree with the hinge and then emits again, and posture, not
-  `isActive`, decides whether a fold is in effect. Thanks to
-  [@erkamyaman](https://github.com/erkamyaman) for reporting this.
+  `isActive`, decides whether a fold is in effect.
 
 Closing the device works too: the app moves to the cover display, reports
 `closed` at 0 degrees and switches to compact width. What a simulator cannot
