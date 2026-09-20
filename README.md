@@ -3,6 +3,15 @@
 **iPhone Duo support for Flutter.** Hinge angle, fold posture and fold/camera
 display regions on Apple's foldable iPhone.
 
+<img align="right" width="200" src="https://raw.githubusercontent.com/berkaycatak/adaptive_platform_ui/main/img/duo_trailing_bar.gif" alt="adaptive_platform_ui on iPhone Duo: toolbar and tab bar in the vertical bar along the side">
+
+> **Want the native iPhone Duo look?**
+> [`adaptive_platform_ui`](https://pub.dev/packages/adaptive_platform_ui) is
+> built on this package and moves the toolbar and tab bar into the side bar as
+> Liquid Glass capsules.
+
+<br clear="right">
+
 iPhone Duo was announced on 9 September 2026 and goes on sale 23 October 2026.
 It ships with iOS 27, has a 7.6" inner display and a 5.4" cover display, and
 its hinge APIs arrive in the iOS 27.1 SDK.

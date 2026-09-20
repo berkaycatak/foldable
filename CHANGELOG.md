@@ -1,3 +1,8 @@
+## 1.0.4
+
+- README: a short pointer to `adaptive_platform_ui`, which builds on this
+  package for the native iPhone Duo look. No code changes.
+
 ## 1.0.3
 
 - The iOS plugin no longer re-reads the reserved regions on a timer. UIKit

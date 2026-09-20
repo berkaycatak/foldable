@@ -10,6 +10,8 @@ article/
 
 # doc/ ships: pubspec `screenshots` points at these, and pub.dev reads them
 # out of the archive rather than from GitHub.
+# Except this one: the README loads it from GitHub, so the archive can skip it.
+doc/duo_trailing_bar.gif
 
 # Build output and tooling.
 build/
