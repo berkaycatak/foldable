@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../bridge/display_feature_bridge.dart';
+import '../model/foldable_capabilities.dart';
 import '../model/foldable_data.dart';
 import '../platform/foldable_platform.dart';
 import 'duo_media_query.dart';
@@ -108,10 +109,16 @@ class _FoldableProviderState extends State<FoldableProvider> {
       _platform.getSnapshot().then((FoldableData snapshot) {
         if (!mounted) return;
         _apply(snapshot);
-        // Without a hinge there is nothing to stream. Size classes still
-        // arrive, refreshed from didChangeDependencies when the window
-        // changes shape.
-        if (!snapshot.isFoldable) return;
+        // The platform reports the absence of a hinge only through a hinge
+        // update, so the first snapshot may still be `unknown`. Subscribe
+        // unless support is definitively absent; on a device without a
+        // hinge the stream closes itself once that is settled, and size
+        // classes still arrive, refreshed from didChangeDependencies when
+        // the window changes shape.
+        if (snapshot.capabilities.supportLevel ==
+            FoldableSupportLevel.unsupported) {
+          return;
+        }
         _subscription = _platform.events.listen(_apply);
         _lifecycle = AppLifecycleListener(onResume: _refresh);
       }),

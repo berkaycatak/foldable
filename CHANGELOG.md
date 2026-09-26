@@ -1,3 +1,18 @@
+## 1.0.5
+
+- **Fixed:** `FoldableProvider` subscribed to the event stream only when the
+  first snapshot already reported a hinge. The platform reports the absence
+  of a hinge only through a hinge update, so a first snapshot of
+  `supportLevel: unknown` is legitimate, and when it arrived before that
+  update the provider never listened again: later folds reached neither
+  `DuoMediaQuery` nor `MediaQuery.displayFeatures`. The provider now
+  subscribes unless support is definitively `unsupported`, the same rule
+  `Foldable.changes` follows; on a device without a hinge the stream closes
+  itself.
+
+Thanks to @ohyeh for the report and the failing test, which is now part of
+the suite ([#2](https://github.com/berkaycatak/foldable/issues/2)).
+
 ## 1.0.4
 
 - README: a short pointer to `adaptive_platform_ui`, which builds on this
