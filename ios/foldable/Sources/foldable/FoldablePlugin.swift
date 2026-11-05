@@ -90,9 +90,12 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     observer.isUserInteractionEnabled = false
     observer.onLayout = { [weak self] view in
       guard let self = self else { return }
+      // The vertical bar edge is part of the signature: it moves on rotation
+      // and between Split View panes, neither of which touches the regions.
       let signature = self.regions(in: view)
         .map { "\($0.kind.rawValue):\($0.isActive):\($0.frame)" }
         .joined(separator: "|")
+        + "#" + FoldableTraits.verticalBarEdge(for: view).rawValue
       guard signature != self.lastRegionSignature else { return }
       self.lastRegionSignature = signature
       // A device that has settled as having no hinge has already had its
@@ -152,6 +155,7 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
       "regions": regions(in: view).map { $0.toMap() },
       "horizontalSizeClass": sizeClasses.horizontal.rawValue,
       "verticalSizeClass": sizeClasses.vertical.rawValue,
+      "verticalBarEdge": FoldableTraits.verticalBarEdge(for: view).rawValue,
     ]
     payload["angleDegrees"] = reading?.angleDegrees ?? NSNull()
     return payload
@@ -248,11 +252,25 @@ final class HingeStreamHandler: NSObject, FlutterStreamHandler {
 /// Draws nothing and takes no touches. It exists so that the reserved regions
 /// are read during a layout pass, which is what makes UIKit run layout again
 /// when one of them changes.
+///
+/// It also reports trait and safe-area changes, which is when the vertical bar
+/// edge moves: moving between Split View panes keeps the view's size but
+/// changes its safe-area insets.
 private final class RegionLayoutObserver: UIView {
   var onLayout: ((UIView) -> Void)?
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    onLayout?(self)
+  }
+
+  override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+    super.traitCollectionDidChange(previous)
+    onLayout?(self)
+  }
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
     onLayout?(self)
   }
 }

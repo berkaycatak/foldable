@@ -5,6 +5,7 @@ import '../model/foldable_data.dart';
 import '../model/hinge_status.dart';
 import '../model/reserved_region.dart';
 import '../model/size_class.dart';
+import '../model/vertical_bar_edge.dart';
 
 /// The facets of [FoldableData] a widget can depend on individually.
 enum FoldableAspect {
@@ -25,6 +26,9 @@ enum FoldableAspect {
 
   /// The iOS size classes.
   sizeClass,
+
+  /// The system vertical bar edge.
+  verticalBarEdge,
 }
 
 /// Exposes fold state to the widget tree.
@@ -102,6 +106,17 @@ class DuoMediaQuery extends InheritedModel<FoldableAspect> {
       )?.data.verticalSizeClass ??
       SizeClass.unspecified;
 
+  /// Where the system places its vertical bar, rebuilding only when it moves.
+  ///
+  /// [VerticalBarEdge.unknown] without a provider, before iOS 27.1, or on
+  /// other platforms.
+  static VerticalBarEdge verticalBarEdgeOf(BuildContext context) =>
+      InheritedModel.inheritFrom<DuoMediaQuery>(
+        context,
+        aspect: FoldableAspect.verticalBarEdge,
+      )?.data.verticalBarEdge ??
+      VerticalBarEdge.unknown;
+
   /// Whether the device has a hinge, rebuilding only when that changes.
   static bool isFoldableOf(BuildContext context) =>
       InheritedModel.inheritFrom<DuoMediaQuery>(
@@ -142,6 +157,8 @@ class DuoMediaQuery extends InheritedModel<FoldableAspect> {
         FoldableAspect.sizeClass =>
           data.horizontalSizeClass != old.horizontalSizeClass ||
               data.verticalSizeClass != old.verticalSizeClass,
+        FoldableAspect.verticalBarEdge =>
+          data.verticalBarEdge != old.verticalBarEdge,
       },
     );
   }

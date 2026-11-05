@@ -41,6 +41,9 @@ hinge, and by default changes no framework behaviour whatsoever.
   rebuilds only the widgets that care about the fold
 - **iOS size classes**: the signal the system itself lays out from, bridged to
   Dart. Works on every iOS device, not just foldables
+- **Vertical bar edge**: which side the system puts its vertical bar on
+  (`UITraitCollection.verticalBarEdge`), as a physical left or right, so
+  bars you draw yourself can follow it
 - **Optional** `MediaQuery.displayFeatures` bridging, off by default
 
 ## Install
@@ -123,6 +126,30 @@ FoldAwareBuilder(
 This is reported on every iOS device, so it stays useful when `isFoldable` is
 false. Off iOS it is `SizeClass.unspecified` and `constraints` remains your
 signal.
+
+### Vertical bar edge
+
+On iPhone Duo the system moves toolbars and tab bars into a vertical bar on
+the cover display and on the inner display in landscape. iOS 27.1 reports where
+that bar goes through `UITraitCollection.verticalBarEdge`; this package resolves
+its leading or trailing value against the layout direction and hands Dart the
+physical side, because the bar is aligned to the hardware in every language.
+
+```dart
+switch (DuoMediaQuery.verticalBarEdgeOf(context)) {
+  case VerticalBarEdge.left:
+  case VerticalBarEdge.right:
+    // draw your toolbar as a column on that side
+  case VerticalBarEdge.none:
+  case VerticalBarEdge.unknown:
+    // horizontal bars
+}
+```
+
+The trait reflects the system's preferred edge whether or not a bar is
+showing, and it moves on rotation and between Split View panes, so a widget
+reading it rebuilds only when the edge changes. Before iOS 27.1 and off iOS it
+is `VerticalBarEdge.unknown`.
 
 `DuoMediaQuery` is an `InheritedModel`, so a widget reading the posture is not
 disturbed while the angle sweeps. For per-frame effects, use
@@ -282,6 +309,10 @@ the iPhone Duo simulator, running both code paths:
   changes, so the plugin reads them from a view's `layoutSubviews` and emits
   again on that pass. Posture, not `isActive`, decides whether a fold is in
   effect.
+- `verticalBarEdge` is a `UIVerticalBarEdge` (unspecified 0, leading 1,
+  trailing 2). On the cover display it reads trailing in portrait and flips
+  between leading and trailing with each landscape rotation; on the inner
+  display it reads unspecified in portrait and a side in landscape.
 
 Closing the device works too: the app moves to the cover display, reports
 `closed` at 0 degrees and switches to compact width. What a simulator cannot

@@ -6,6 +6,7 @@ import 'foldable_capabilities.dart';
 import 'hinge_status.dart';
 import 'reserved_region.dart';
 import 'size_class.dart';
+import 'vertical_bar_edge.dart';
 
 /// An atomic snapshot of everything the platform knows about the fold.
 ///
@@ -24,6 +25,7 @@ class FoldableData {
     required this.displayFeatures,
     this.horizontalSizeClass = SizeClass.unspecified,
     this.verticalSizeClass = SizeClass.unspecified,
+    this.verticalBarEdge = VerticalBarEdge.unknown,
   });
 
   /// The value used on devices without a hinge, on non-iOS platforms, and
@@ -70,6 +72,12 @@ class FoldableData {
   /// The vertical size class iOS reports for this window.
   final SizeClass verticalSizeClass;
 
+  /// Where the system places its vertical bar for this window.
+  ///
+  /// Reported on every iOS 27.1 device, foldable or not.
+  /// [VerticalBarEdge.unknown] on older systems and other platforms.
+  final VerticalBarEdge verticalBarEdge;
+
   /// Whether this device physically has a hinge.
   bool get isFoldable => capabilities.isFoldable;
 
@@ -95,6 +103,7 @@ class FoldableData {
     List<DisplayFeature>? displayFeatures,
     SizeClass? horizontalSizeClass,
     SizeClass? verticalSizeClass,
+    VerticalBarEdge? verticalBarEdge,
   }) {
     return FoldableData(
       capabilities: capabilities ?? this.capabilities,
@@ -104,6 +113,7 @@ class FoldableData {
       displayFeatures: displayFeatures ?? this.displayFeatures,
       horizontalSizeClass: horizontalSizeClass ?? this.horizontalSizeClass,
       verticalSizeClass: verticalSizeClass ?? this.verticalSizeClass,
+      verticalBarEdge: verticalBarEdge ?? this.verticalBarEdge,
     );
   }
 
@@ -116,6 +126,7 @@ class FoldableData {
           other.angleDegrees == angleDegrees &&
           other.horizontalSizeClass == horizontalSizeClass &&
           other.verticalSizeClass == verticalSizeClass &&
+          other.verticalBarEdge == verticalBarEdge &&
           listEquals(other.regions, regions) &&
           listEquals(other.displayFeatures, displayFeatures);
 
@@ -126,6 +137,7 @@ class FoldableData {
     angleDegrees,
     horizontalSizeClass,
     verticalSizeClass,
+    verticalBarEdge,
     Object.hashAll(regions),
     Object.hashAll(displayFeatures),
   );
