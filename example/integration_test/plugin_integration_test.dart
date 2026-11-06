@@ -41,6 +41,22 @@ void main() {
     expect(data.verticalSizeClass, anyOf(SizeClass.compact, SizeClass.regular));
   });
 
+  testWidgets('vertical bar edge comes back from the real trait collection', (
+    tester,
+  ) async {
+    final FoldableData data = await Foldable.snapshot;
+    // ignore: avoid_print
+    print('EDGE: verticalBarEdge=${data.verticalBarEdge.name} '
+        'sizeClass=${data.horizontalSizeClass.name}/'
+        '${data.verticalSizeClass.name}');
+    if (data.capabilities.hingeApiPresent) {
+      // iOS 27.1 or newer: the trait exists, so there is always an answer.
+      expect(data.verticalBarEdge, isNot(VerticalBarEdge.unknown));
+    } else {
+      expect(data.verticalBarEdge, VerticalBarEdge.unknown);
+    }
+  });
+
   testWidgets('hinge resolves to a settled answer', (tester) async {
     // The platform reports the absence of a hinge through an update, so the
     // first snapshot can legitimately be "unknown". Give it a moment.

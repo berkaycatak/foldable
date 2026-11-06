@@ -90,9 +90,12 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
     observer.isUserInteractionEnabled = false
     observer.onLayout = { [weak self] view in
       guard let self = self else { return }
+      // The vertical bar edge is part of the signature: it moves on rotation
+      // and between Split View panes, neither of which touches the regions.
       let signature = self.regions(in: view)
         .map { "\($0.kind.rawValue):\($0.isActive):\($0.frame)" }
         .joined(separator: "|")
+        + "#" + FoldableTraits.verticalBarEdge(for: view).rawValue
       guard signature != self.lastRegionSignature else { return }
       self.lastRegionSignature = signature
       // A device that has settled as having no hinge has already had its
@@ -152,6 +155,7 @@ public class FoldablePlugin: NSObject, FlutterPlugin {
       "regions": regions(in: view).map { $0.toMap() },
       "horizontalSizeClass": sizeClasses.horizontal.rawValue,
       "verticalSizeClass": sizeClasses.vertical.rawValue,
+      "verticalBarEdge": FoldableTraits.verticalBarEdge(for: view).rawValue,
     ]
     payload["angleDegrees"] = reading?.angleDegrees ?? NSNull()
     return payload
@@ -248,11 +252,53 @@ final class HingeStreamHandler: NSObject, FlutterStreamHandler {
 /// Draws nothing and takes no touches. It exists so that the reserved regions
 /// are read during a layout pass, which is what makes UIKit run layout again
 /// when one of them changes.
+///
+/// It also reports trait and safe-area changes, which is when the vertical bar
+/// edge moves: moving between Split View panes keeps the view's size but
+/// changes its safe-area insets.
 private final class RegionLayoutObserver: UIView {
   var onLayout: ((UIView) -> Void)?
+  private var settlePending = false
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    report()
+  }
+
+  override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+    super.traitCollectionDidChange(previous)
+    report()
+  }
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
+    report()
+  }
+
+  /// Reports now, and again once the change has settled.
+  ///
+  /// On rotation the reserved regions trail the view. Measured on the iPhone
+  /// Duo simulator, the passes above can read the camera occlusion in its
+  /// pre-rotation shape, or in the pre-rotation coordinate space, and no
+  /// further pass follows when the regions catch up, so the stale reading
+  /// stays. The read is therefore repeated on the next run loop turn and, while
+  /// a transition runs, after it completes. Readings that did not change are
+  /// dropped by the signature check in `onLayout`.
+  private func report() {
     onLayout?(self)
+    guard !settlePending else { return }
+    settlePending = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      self.settlePending = false
+      self.onLayout?(self)
+      let coordinator = self.window?.rootViewController?.transitionCoordinator
+      coordinator?.animate(alongsideTransition: nil) { [weak self] _ in
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          self.onLayout?(self)
+        }
+      }
+    }
   }
 }

@@ -5,6 +5,7 @@ import '../model/foldable_data.dart';
 import '../model/hinge_status.dart';
 import '../model/reserved_region.dart';
 import '../model/size_class.dart';
+import '../model/vertical_bar_edge.dart';
 
 /// Decodes platform channel payloads into models.
 ///
@@ -35,6 +36,7 @@ abstract final class FoldableCodec {
       regions: _regions(raw['regions']),
       horizontalSizeClass: SizeClass.fromWire(raw['horizontalSizeClass']),
       verticalSizeClass: SizeClass.fromWire(raw['verticalSizeClass']),
+      verticalBarEdge: VerticalBarEdge.fromWire(raw['verticalBarEdge']),
       // Bridging is a pure-Dart decision; the platform never supplies these.
       displayFeatures: const [],
     );

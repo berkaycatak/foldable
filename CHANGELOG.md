@@ -1,3 +1,20 @@
+## Unreleased
+
+- **Added:** `FoldableData.verticalBarEdge` and
+  `DuoMediaQuery.verticalBarEdgeOf`, the side the system places its vertical
+  bar on (`UITraitCollection.verticalBarEdge`, iOS 27.1), resolved to a
+  physical `left` or `right`. It is read through the Objective-C runtime like
+  the rest of the plugin, or typed with `FOLDABLE_NATIVE_API`, and emitted
+  again when it moves: the region observer now also reports trait and
+  safe-area changes, which is how a move between Split View panes shows up.
+- `FoldableAspect` gains a `verticalBarEdge` value. A `switch` over
+  `FoldableAspect` that lists every case needs one more.
+- **Fixed:** after a rotation, `regions` could keep a stale camera occlusion,
+  in its pre-rotation shape or coordinate space. Reserved regions trail the
+  view on rotation and no layout pass follows when they catch up, so the
+  observer now reads them again on the next run loop turn and after the
+  rotation transition completes.
+
 ## 1.0.5
 
 - **Fixed:** `FoldableProvider` subscribed to the event stream only when the
