@@ -258,19 +258,47 @@ final class HingeStreamHandler: NSObject, FlutterStreamHandler {
 /// changes its safe-area insets.
 private final class RegionLayoutObserver: UIView {
   var onLayout: ((UIView) -> Void)?
+  private var settlePending = false
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    onLayout?(self)
+    report()
   }
 
   override func traitCollectionDidChange(_ previous: UITraitCollection?) {
     super.traitCollectionDidChange(previous)
-    onLayout?(self)
+    report()
   }
 
   override func safeAreaInsetsDidChange() {
     super.safeAreaInsetsDidChange()
+    report()
+  }
+
+  /// Reports now, and again once the change has settled.
+  ///
+  /// On rotation the reserved regions trail the view. Measured on the iPhone
+  /// Duo simulator, the passes above can read the camera occlusion in its
+  /// pre-rotation shape, or in the pre-rotation coordinate space, and no
+  /// further pass follows when the regions catch up, so the stale reading
+  /// stays. The read is therefore repeated on the next run loop turn and, while
+  /// a transition runs, after it completes. Readings that did not change are
+  /// dropped by the signature check in `onLayout`.
+  private func report() {
     onLayout?(self)
+    guard !settlePending else { return }
+    settlePending = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      self.settlePending = false
+      self.onLayout?(self)
+      let coordinator = self.window?.rootViewController?.transitionCoordinator
+      coordinator?.animate(alongsideTransition: nil) { [weak self] _ in
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          self.onLayout?(self)
+        }
+      }
+    }
   }
 }
